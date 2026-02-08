@@ -16,9 +16,6 @@ import javax.inject.Singleton
  * Defense-in-Depth Encryption Strategy:
  * Layer 1: SQLCipher encrypts the entire database file
  * Layer 2: CryptoManager encrypts individual note content before storage
- * 
- * This ensures that even if SQLCipher is somehow bypassed,
- * the note content remains encrypted with Keystore-backed keys.
  */
 @Singleton
 class NoteRepositoryImpl @Inject constructor(
@@ -26,36 +23,24 @@ class NoteRepositoryImpl @Inject constructor(
     private val cryptoManager: CryptoManager
 ) : NoteRepository {
 
-    /**
-     * Gets all notes, decrypting content on the fly.
-     */
+    // ========== Active Notes ==========
+
     override fun getAllNotes(): Flow<List<Note>> {
         return noteDao.getAllNotes().map { entities ->
             entities.map { entity -> decryptNote(entity) }
         }
     }
 
-    /**
-     * Gets a single note by ID.
-     */
     override suspend fun getNoteById(id: Long): Note? {
         return noteDao.getNoteById(id)?.let { decryptNote(it) }
     }
 
-    /**
-     * Gets a note as a Flow for observing changes.
-     */
     override fun getNoteByIdFlow(id: Long): Flow<Note?> {
         return noteDao.getNoteByIdFlow(id).map { entity ->
             entity?.let { decryptNote(it) }
         }
     }
 
-    /**
-     * Creates a new note with encrypted content.
-     * 
-     * @return The ID of the created note
-     */
     override suspend fun createNote(note: Note): Long {
         val entity = encryptNote(note.copy(
             createdAt = System.currentTimeMillis(),
@@ -64,9 +49,6 @@ class NoteRepositoryImpl @Inject constructor(
         return noteDao.insertNote(entity)
     }
 
-    /**
-     * Updates an existing note with encrypted content.
-     */
     override suspend fun updateNote(note: Note) {
         val entity = encryptNote(note.copy(
             updatedAt = System.currentTimeMillis()
@@ -74,26 +56,18 @@ class NoteRepositoryImpl @Inject constructor(
         noteDao.updateNote(entity)
     }
 
-    /**
-     * Deletes a note.
-     */
+    override suspend fun softDeleteNote(id: Long) {
+        noteDao.softDeleteNote(id, System.currentTimeMillis())
+    }
+
     override suspend fun deleteNote(note: Note) {
         noteDao.deleteNoteById(note.id)
     }
 
-    /**
-     * Deletes a note by ID.
-     */
     override suspend fun deleteNoteById(id: Long) {
         noteDao.deleteNoteById(id)
     }
 
-    /**
-     * Searches notes by query.
-     * Since content is encrypted in DB, we decrypt all notes and search in memory.
-     * 
-     * For large note collections, consider implementing a secure search index.
-     */
     override suspend fun searchNotes(query: String): List<Note> {
         if (query.isBlank()) return emptyList()
         
@@ -108,32 +82,65 @@ class NoteRepositoryImpl @Inject constructor(
             }
     }
 
-    /**
-     * Gets favorite notes.
-     */
     override fun getFavoriteNotes(): Flow<List<Note>> {
         return noteDao.getFavoriteNotes().map { entities ->
             entities.map { decryptNote(it) }
         }
     }
 
-    /**
-     * Deletes all notes (used for panic wipe).
-     */
     override suspend fun deleteAllNotes() {
         noteDao.deleteAllNotes()
     }
 
-    /**
-     * Gets the count of all notes.
-     */
     override suspend fun getNoteCount(): Int {
         return noteDao.getNoteCount()
     }
 
-    /**
-     * Encrypts note content before storage.
-     */
+    // ========== Trash (Recycle Bin) ==========
+
+    override fun getDeletedNotes(): Flow<List<Note>> {
+        return noteDao.getDeletedNotes().map { entities ->
+            entities.map { entity -> decryptNote(entity) }
+        }
+    }
+
+    override suspend fun restoreNote(id: Long) {
+        noteDao.restoreNote(id)
+    }
+
+    override suspend fun permanentlyDeleteNote(id: Long) {
+        noteDao.permanentlyDeleteNote(id)
+    }
+
+    override suspend fun emptyTrash() {
+        noteDao.emptyTrash()
+    }
+
+    override suspend fun getDeletedNoteCount(): Int {
+        return noteDao.getDeletedNoteCount()
+    }
+
+    // ========== Biometric Lock ==========
+
+    override suspend fun updateNoteLock(id: Long, isLocked: Boolean) {
+        noteDao.updateNoteLock(id, isLocked)
+    }
+
+    // ========== Backup/Restore ==========
+
+    override suspend fun getAllNotesForBackup(): List<Note> {
+        return noteDao.getAllNotesForBackup().map { decryptNote(it) }
+    }
+
+    override suspend fun restoreNotesFromBackup(notes: List<Note>) {
+        val entities = notes.map { note ->
+            encryptNote(note)
+        }
+        noteDao.insertNotes(entities)
+    }
+
+    // ========== Encryption Helpers ==========
+
     private fun encryptNote(note: Note): NoteEntity {
         return NoteEntity(
             id = note.id,
@@ -142,13 +149,13 @@ class NoteRepositoryImpl @Inject constructor(
             createdAt = note.createdAt,
             updatedAt = note.updatedAt,
             isFavorite = note.isFavorite,
-            colorTag = note.colorTag
+            colorTag = note.colorTag,
+            isDeleted = note.isDeleted,
+            deletedAt = note.deletedAt,
+            isLocked = note.isLocked
         )
     }
 
-    /**
-     * Decrypts note content after retrieval.
-     */
     private fun decryptNote(entity: NoteEntity): Note {
         return Note(
             id = entity.id,
@@ -165,7 +172,10 @@ class NoteRepositoryImpl @Inject constructor(
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
             isFavorite = entity.isFavorite,
-            colorTag = entity.colorTag
+            colorTag = entity.colorTag,
+            isDeleted = entity.isDeleted,
+            deletedAt = entity.deletedAt,
+            isLocked = entity.isLocked
         )
     }
 }

@@ -30,5 +30,18 @@ data class NoteEntity(
     val isFavorite: Boolean = false,
     
     /** Color tag for the note (stored as color int) */
-    val colorTag: Int? = null
+    val colorTag: Int? = null,
+    
+    // ========== Feature 1: Recycle Bin ==========
+    
+    /** Whether the note is soft-deleted (in trash) */
+    val isDeleted: Boolean = false,
+    
+    /** Timestamp when the note was deleted (for auto-cleanup) */
+    val deletedAt: Long? = null,
+    
+    // ========== Feature 2: Biometric Lock ==========
+    
+    /** Whether the note requires biometric authentication to view */
+    val isLocked: Boolean = false
 )

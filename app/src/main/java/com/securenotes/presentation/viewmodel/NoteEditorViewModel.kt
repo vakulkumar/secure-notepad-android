@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.securenotes.domain.model.Note
 import com.securenotes.domain.usecase.CreateNoteUseCase
 import com.securenotes.domain.usecase.GetNotesUseCase
+import com.securenotes.domain.usecase.ToggleNoteLockUseCase
 import com.securenotes.domain.usecase.UpdateNoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,8 @@ class NoteEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getNotesUseCase: GetNotesUseCase,
     private val createNoteUseCase: CreateNoteUseCase,
-    private val updateNoteUseCase: UpdateNoteUseCase
+    private val updateNoteUseCase: UpdateNoteUseCase,
+    private val toggleNoteLockUseCase: ToggleNoteLockUseCase
 ) : ViewModel() {
 
     private val noteId: Long = savedStateHandle.get<Long>("noteId") ?: -1L
@@ -37,9 +39,6 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Loads an existing note for editing.
-     */
     private fun loadNote(id: Long) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -52,6 +51,7 @@ class NoteEditorViewModel @Inject constructor(
                         title = note.title,
                         content = note.content,
                         isFavorite = note.isFavorite,
+                        isLocked = note.isLocked,
                         isLoading = false,
                         isNewNote = false
                     )
@@ -67,9 +67,6 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Updates the title.
-     */
     fun onTitleChange(title: String) {
         _uiState.update { 
             it.copy(
@@ -79,9 +76,6 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Updates the content.
-     */
     fun onContentChange(content: String) {
         _uiState.update { 
             it.copy(
@@ -91,9 +85,6 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggles favorite status.
-     */
     fun toggleFavorite() {
         _uiState.update { 
             it.copy(
@@ -104,14 +95,37 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     /**
-     * Saves the note.
-     * 
-     * @return true if save was successful
+     * Toggles the lock status of the note.
      */
+    fun toggleLock() {
+        val currentState = _uiState.value
+        val newLockState = !currentState.isLocked
+        
+        _uiState.update { 
+            it.copy(
+                isLocked = newLockState,
+                hasUnsavedChanges = true
+            )
+        }
+        
+        // If editing existing note, also update in database directly
+        if (!currentState.isNewNote && currentState.noteId > 0) {
+            viewModelScope.launch {
+                toggleNoteLockUseCase(currentState.noteId, newLockState)
+            }
+        }
+    }
+
+    /**
+     * Toggles between edit and preview mode.
+     */
+    fun togglePreviewMode() {
+        _uiState.update { it.copy(isPreviewMode = !it.isPreviewMode) }
+    }
+
     fun saveNote(): Boolean {
         val state = _uiState.value
         
-        // Don't save empty notes
         if (state.title.isBlank() && state.content.isBlank()) {
             return false
         }
@@ -125,7 +139,8 @@ class NoteEditorViewModel @Inject constructor(
                         Note(
                             title = state.title,
                             content = state.content,
-                            isFavorite = state.isFavorite
+                            isFavorite = state.isFavorite,
+                            isLocked = state.isLocked
                         )
                     )
                     _uiState.update { 
@@ -142,7 +157,8 @@ class NoteEditorViewModel @Inject constructor(
                             id = state.noteId,
                             title = state.title,
                             content = state.content,
-                            isFavorite = state.isFavorite
+                            isFavorite = state.isFavorite,
+                            isLocked = state.isLocked
                         )
                     )
                     _uiState.update { 
@@ -165,25 +181,21 @@ class NoteEditorViewModel @Inject constructor(
         return true
     }
 
-    /**
-     * Clears the error message.
-     */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
-    /**
-     * Data class representing the UI state.
-     */
     data class NoteEditorUiState(
         val noteId: Long = 0,
         val title: String = "",
         val content: String = "",
         val isFavorite: Boolean = false,
+        val isLocked: Boolean = false,
         val isNewNote: Boolean = true,
         val isLoading: Boolean = false,
         val isSaving: Boolean = false,
         val hasUnsavedChanges: Boolean = false,
+        val isPreviewMode: Boolean = false,
         val error: String? = null
     )
 }

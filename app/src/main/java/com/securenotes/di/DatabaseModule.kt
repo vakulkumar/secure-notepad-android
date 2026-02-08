@@ -44,6 +44,7 @@ object DatabaseModule {
             NoteDatabase.DATABASE_NAME
         )
             .openHelperFactory(factory)
+            .addMigrations(NoteDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
     }

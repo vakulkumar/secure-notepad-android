@@ -19,21 +19,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -65,17 +72,21 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Note list screen with search functionality.
+ * Note list screen with staggered grid layout (Google Keep style).
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NoteListScreen(
     onNoteClick: (Long) -> Unit,
+    onLockedNoteClick: (Long, () -> Unit) -> Unit,
     onCreateNote: () -> Unit,
+    onTrashClick: () -> Unit,
+    onBackupClick: () -> Unit,
     viewModel: NotesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var isSearchActive by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -93,6 +104,36 @@ fun NoteListScreen(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search"
                             )
+                        }
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More"
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Trash") },
+                                    onClick = {
+                                        showMenu = false
+                                        onTrashClick()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.DeleteOutline, null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Backup & Restore") },
+                                    onClick = {
+                                        showMenu = false
+                                        onBackupClick()
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -153,9 +194,12 @@ fun NoteListScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(
+                    // Staggered Grid Layout (Google Keep style)
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Fixed(2),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalItemSpacing = 12.dp
                     ) {
                         items(
                             items = uiState.notes,
@@ -163,10 +207,17 @@ fun NoteListScreen(
                         ) { note ->
                             NoteCard(
                                 note = note,
-                                onClick = { onNoteClick(note.id) },
+                                onClick = {
+                                    if (note.isLocked) {
+                                        onLockedNoteClick(note.id) {
+                                            onNoteClick(note.id)
+                                        }
+                                    } else {
+                                        onNoteClick(note.id)
+                                    }
+                                },
                                 onDelete = { viewModel.deleteNote(note) },
-                                onToggleFavorite = { viewModel.toggleFavorite(note.id) },
-                                modifier = Modifier.animateItemPlacement()
+                                onToggleFavorite = { viewModel.toggleFavorite(note.id) }
                             )
                         }
                     }
@@ -252,6 +303,7 @@ private fun NoteCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .wrapContentHeight() // Dynamic height for staggered grid
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showDeleteConfirm = true }
@@ -270,14 +322,29 @@ private fun NoteCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = note.title.ifEmpty { "Untitled" },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
-                )
+                ) {
+                    // Lock icon if note is locked
+                    if (note.isLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(end = 4.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = note.title.ifEmpty { "Untitled" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Row {
                     IconButton(
@@ -314,13 +381,14 @@ private fun NoteCard(
                 }
             }
 
+            // Show content preview (variable length for staggered effect)
             if (note.content.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = note.contentPreview(150),
+                    text = note.contentPreview(200),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 3,
+                    maxLines = 8, // Allow more lines for staggered effect
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -354,7 +422,7 @@ private fun EmptyNotesView(isSearching: Boolean) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Notes,
+                    imageVector = Icons.AutoMirrored.Outlined.Notes,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer

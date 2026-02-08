@@ -3,9 +3,11 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
 }
+
 
 // Load keystore properties from local file
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -113,4 +115,7 @@ dependencies {
     
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+    
+    // Serialization (for backup)
+    implementation(libs.kotlinx.serialization.json)
 }

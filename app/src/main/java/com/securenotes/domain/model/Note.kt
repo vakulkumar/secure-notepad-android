@@ -13,7 +13,14 @@ data class Note(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isFavorite: Boolean = false,
-    val colorTag: Int? = null
+    val colorTag: Int? = null,
+    
+    // Feature 1: Recycle Bin
+    val isDeleted: Boolean = false,
+    val deletedAt: Long? = null,
+    
+    // Feature 2: Biometric Lock
+    val isLocked: Boolean = false
 ) {
     companion object {
         /**

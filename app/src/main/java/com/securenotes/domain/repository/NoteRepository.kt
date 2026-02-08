@@ -11,8 +11,10 @@ import kotlinx.coroutines.flow.Flow
  */
 interface NoteRepository {
     
+    // ========== Active Notes ==========
+    
     /**
-     * Gets all notes as a Flow for reactive updates.
+     * Gets all active (non-deleted) notes as a Flow.
      */
     fun getAllNotes(): Flow<List<Note>>
     
@@ -28,7 +30,6 @@ interface NoteRepository {
     
     /**
      * Creates a new note.
-     * 
      * @return The ID of the created note
      */
     suspend fun createNote(note: Note): Long
@@ -39,18 +40,22 @@ interface NoteRepository {
     suspend fun updateNote(note: Note)
     
     /**
-     * Deletes a note.
+     * Soft deletes a note (moves to trash).
+     */
+    suspend fun softDeleteNote(id: Long)
+    
+    /**
+     * Permanently deletes a note.
      */
     suspend fun deleteNote(note: Note)
     
     /**
-     * Deletes a note by ID.
+     * Deletes a note by ID (permanent).
      */
     suspend fun deleteNoteById(id: Long)
     
     /**
      * Searches notes by query.
-     * Searches both title and content.
      */
     suspend fun searchNotes(query: String): List<Note>
     
@@ -65,7 +70,53 @@ interface NoteRepository {
     suspend fun deleteAllNotes()
     
     /**
-     * Gets the count of all notes.
+     * Gets the count of active notes.
      */
     suspend fun getNoteCount(): Int
+    
+    // ========== Trash (Recycle Bin) ==========
+    
+    /**
+     * Gets all deleted notes (trash).
+     */
+    fun getDeletedNotes(): Flow<List<Note>>
+    
+    /**
+     * Restores a note from trash.
+     */
+    suspend fun restoreNote(id: Long)
+    
+    /**
+     * Permanently deletes a note from trash.
+     */
+    suspend fun permanentlyDeleteNote(id: Long)
+    
+    /**
+     * Empties the trash (deletes all soft-deleted notes).
+     */
+    suspend fun emptyTrash()
+    
+    /**
+     * Gets the count of deleted notes.
+     */
+    suspend fun getDeletedNoteCount(): Int
+    
+    // ========== Biometric Lock ==========
+    
+    /**
+     * Updates the lock status of a note.
+     */
+    suspend fun updateNoteLock(id: Long, isLocked: Boolean)
+    
+    // ========== Backup/Restore ==========
+    
+    /**
+     * Gets all notes including deleted (for backup).
+     */
+    suspend fun getAllNotesForBackup(): List<Note>
+    
+    /**
+     * Inserts multiple notes (for restore).
+     */
+    suspend fun restoreNotesFromBackup(notes: List<Note>)
 }

@@ -18,16 +18,18 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NoteDao {
     
+    // ========== Active Notes (Not Deleted) ==========
+    
     /**
-     * Gets all notes ordered by modification time (newest first).
+     * Gets all active (non-deleted) notes ordered by modification time (newest first).
      */
-    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE isDeleted = 0 ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
     
     /**
-     * Gets all notes as a one-shot list (for search).
+     * Gets all active notes as a one-shot list (for search).
      */
-    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE isDeleted = 0 ORDER BY updatedAt DESC")
     suspend fun getAllNotesOnce(): List<NoteEntity>
     
     /**
@@ -43,10 +45,58 @@ interface NoteDao {
     fun getNoteByIdFlow(id: Long): Flow<NoteEntity?>
     
     /**
-     * Gets favorite notes.
+     * Gets active favorite notes.
      */
-    @Query("SELECT * FROM notes WHERE isFavorite = 1 ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE isFavorite = 1 AND isDeleted = 0 ORDER BY updatedAt DESC")
     fun getFavoriteNotes(): Flow<List<NoteEntity>>
+    
+    // ========== Trash (Deleted Notes) ==========
+    
+    /**
+     * Gets all deleted notes (trash).
+     */
+    @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY deletedAt DESC")
+    fun getDeletedNotes(): Flow<List<NoteEntity>>
+    
+    /**
+     * Gets count of deleted notes.
+     */
+    @Query("SELECT COUNT(*) FROM notes WHERE isDeleted = 1")
+    suspend fun getDeletedNoteCount(): Int
+    
+    /**
+     * Soft deletes a note (moves to trash).
+     */
+    @Query("UPDATE notes SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :id")
+    suspend fun softDeleteNote(id: Long, deletedAt: Long = System.currentTimeMillis())
+    
+    /**
+     * Restores a note from trash.
+     */
+    @Query("UPDATE notes SET isDeleted = 0, deletedAt = NULL WHERE id = :id")
+    suspend fun restoreNote(id: Long)
+    
+    /**
+     * Permanently deletes a note by ID.
+     */
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun permanentlyDeleteNote(id: Long)
+    
+    /**
+     * Empties the trash (permanently deletes all soft-deleted notes).
+     */
+    @Query("DELETE FROM notes WHERE isDeleted = 1")
+    suspend fun emptyTrash()
+    
+    // ========== Biometric Lock ==========
+    
+    /**
+     * Updates the lock status of a note.
+     */
+    @Query("UPDATE notes SET isLocked = :isLocked WHERE id = :id")
+    suspend fun updateNoteLock(id: Long, isLocked: Boolean)
+    
+    // ========== CRUD Operations ==========
     
     /**
      * Inserts a new note.
@@ -63,13 +113,13 @@ interface NoteDao {
     suspend fun updateNote(note: NoteEntity)
     
     /**
-     * Deletes a note.
+     * Deletes a note (permanent - use softDeleteNote for trash).
      */
     @Delete
     suspend fun deleteNote(note: NoteEntity)
     
     /**
-     * Deletes a note by ID.
+     * Deletes a note by ID (permanent).
      */
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteNoteById(id: Long)
@@ -81,8 +131,22 @@ interface NoteDao {
     suspend fun deleteAllNotes()
     
     /**
-     * Gets the count of all notes.
+     * Gets the count of active notes.
      */
-    @Query("SELECT COUNT(*) FROM notes")
+    @Query("SELECT COUNT(*) FROM notes WHERE isDeleted = 0")
     suspend fun getNoteCount(): Int
+    
+    // ========== Backup/Restore ==========
+    
+    /**
+     * Gets all notes including deleted (for backup).
+     */
+    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    suspend fun getAllNotesForBackup(): List<NoteEntity>
+    
+    /**
+     * Inserts multiple notes (for restore).
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotes(notes: List<NoteEntity>)
 }

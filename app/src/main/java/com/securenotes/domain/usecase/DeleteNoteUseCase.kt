@@ -6,30 +6,33 @@ import javax.inject.Inject
 
 /**
  * Use case for deleting notes.
+ * 
+ * Default behavior is soft delete (move to trash).
+ * Use PermanentlyDeleteNoteUseCase for permanent deletion.
  */
 class DeleteNoteUseCase @Inject constructor(
     private val repository: NoteRepository
 ) {
     /**
-     * Deletes a note.
+     * Soft deletes a note (moves to trash).
      * 
      * @param note The note to delete
      */
     suspend operator fun invoke(note: Note) {
-        repository.deleteNote(note)
+        repository.softDeleteNote(note.id)
     }
     
     /**
-     * Deletes a note by ID.
+     * Soft deletes a note by ID (moves to trash).
      * 
      * @param id The ID of the note to delete
      */
     suspend operator fun invoke(id: Long) {
-        repository.deleteNoteById(id)
+        repository.softDeleteNote(id)
     }
     
     /**
-     * Deletes all notes (used for panic wipe).
+     * Deletes all notes permanently (used for panic wipe).
      */
     suspend fun deleteAll() {
         repository.deleteAllNotes()

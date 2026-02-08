@@ -15,6 +15,7 @@ securityCrypto = "1.1.0-alpha06"
 biometric = "1.1.0"
 navigationCompose = "2.7.7"
 coroutines = "1.7.3"
+kotlinxSerialization = "1.6.3"
 
 [libraries]
 # Core Android
@@ -54,8 +55,12 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
+# Serialization
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

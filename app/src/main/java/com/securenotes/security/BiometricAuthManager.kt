@@ -116,6 +116,53 @@ class BiometricAuthManager @Inject constructor(
     }
 
     /**
+     * Shows the biometric prompt with callback-based result handling.
+     * Use this for one-off authentication needs (e.g., unlocking individual notes).
+     * 
+     * @param activity The FragmentActivity to show the prompt
+     * @param onSuccess Called when authentication succeeds
+     * @param onError Called when authentication fails or is canceled
+     */
+    fun authenticate(
+        activity: FragmentActivity,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val executor = ContextCompat.getMainExecutor(context)
+        
+        val callback = object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
+                onSuccess()
+            }
+
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
+                onError(errString.toString())
+            }
+
+            override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
+                // Don't call onError here - user can try again
+            }
+        }
+
+        val biometricPrompt = BiometricPrompt(activity, executor, callback)
+        
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock Note")
+            .setSubtitle("This note is protected")
+            .setDescription("Authenticate to view this note")
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
+    }
+
+    /**
      * Represents biometric authentication capability of the device.
      */
     enum class BiometricCapability {

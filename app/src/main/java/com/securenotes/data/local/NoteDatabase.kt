@@ -2,6 +2,8 @@ package com.securenotes.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.securenotes.data.local.dao.NoteDao
 import com.securenotes.data.local.entity.NoteEntity
 
@@ -19,7 +21,7 @@ import com.securenotes.data.local.entity.NoteEntity
  */
 @Database(
     entities = [NoteEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class NoteDatabase : RoomDatabase() {
@@ -28,5 +30,28 @@ abstract class NoteDatabase : RoomDatabase() {
     
     companion object {
         const val DATABASE_NAME = "secure_notes_db"
+        
+        /**
+         * Migration from version 1 to 2:
+         * - Adds isDeleted column for soft delete (Recycle Bin)
+         * - Adds deletedAt column for trash timestamp
+         * - Adds isLocked column for biometric lock per note
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add isDeleted column with default false (0)
+                database.execSQL(
+                    "ALTER TABLE notes ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0"
+                )
+                // Add deletedAt column (nullable)
+                database.execSQL(
+                    "ALTER TABLE notes ADD COLUMN deletedAt INTEGER DEFAULT NULL"
+                )
+                // Add isLocked column with default false (0)
+                database.execSQL(
+                    "ALTER TABLE notes ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
     }
 }

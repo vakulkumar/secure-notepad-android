@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import com.securenotes.presentation.navigation.SecureNotesNavigation
 import com.securenotes.presentation.ui.theme.SecureNotepadTheme
+import com.securenotes.security.BiometricAuthManager
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Main Activity for Secure Notes.
@@ -25,11 +27,13 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     
+    @Inject
+    lateinit var biometricAuthManager: BiometricAuthManager
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // SECURITY: Enable FLAG_SECURE to prevent screenshots and screen recording
-        // This also hides the app content in the recent apps switcher
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
@@ -43,7 +47,9 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SecureNotesNavigation()
+                    SecureNotesNavigation(
+                        biometricAuthManager = biometricAuthManager
+                    )
                 }
             }
         }
@@ -57,6 +63,5 @@ class MainActivity : FragmentActivity() {
     override fun onStop() {
         super.onStop()
         // The app will require re-authentication when resumed
-        // This is handled by the ViewModel and SecurePreferences
     }
 }
