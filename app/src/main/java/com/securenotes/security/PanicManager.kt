@@ -1,0 +1,125 @@
+package com.securenotes.security
+
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * PanicManager provides emergency security features:
+ * - Instant app lock
+ * - Complete data wipe (nuclear option)
+ * 
+ * This is a scaffold for the "Panic Button" feature.
+ * In a production app, this could be triggered by:
+ * - A secret gesture
+ * - A duress PIN
+ * - A hardware button combination
+ * - Remote wipe command (requires network, not applicable here)
+ */
+@Singleton
+class PanicManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val cryptoManager: CryptoManager,
+    private val securePreferences: SecurePreferences
+) {
+    
+    /**
+     * Represents the severity of panic action.
+     */
+    enum class PanicLevel {
+        /** Just lock the app, data remains */
+        LOCK_ONLY,
+        /** Delete all encryption keys, making data unreadable */
+        CRYPTOGRAPHIC_WIPE,
+        /** Delete all data files completely */
+        FULL_WIPE
+    }
+
+    /**
+     * Executes panic action based on the specified level.
+     * 
+     * @param level The severity of the panic action
+     * @return Result indicating success or failure
+     */
+    suspend fun executePanic(level: PanicLevel): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            when (level) {
+                PanicLevel.LOCK_ONLY -> {
+                    lockApp()
+                }
+                PanicLevel.CRYPTOGRAPHIC_WIPE -> {
+                    lockApp()
+                    cryptoManager.deleteAllKeys()
+                    // Note: Data still exists but is cryptographically unrecoverable
+                }
+                PanicLevel.FULL_WIPE -> {
+                    lockApp()
+                    cryptoManager.deleteAllKeys()
+                    deleteAllData()
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Locks the app immediately.
+     */
+    private fun lockApp() {
+        securePreferences.isAppLocked = true
+        securePreferences.lastLockTime = 0L // Force re-authentication
+    }
+
+    /**
+     * Deletes all application data.
+     */
+    private fun deleteAllData() {
+        // Delete databases
+        val databasesDir = File(context.applicationInfo.dataDir, "databases")
+        deleteRecursively(databasesDir)
+        
+        // Delete shared preferences
+        val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+        deleteRecursively(prefsDir)
+        
+        // Delete files
+        val filesDir = context.filesDir
+        deleteRecursively(filesDir)
+        
+        // Delete cache
+        val cacheDir = context.cacheDir
+        deleteRecursively(cacheDir)
+    }
+
+    /**
+     * Recursively deletes a directory and all its contents.
+     */
+    private fun deleteRecursively(file: File) {
+        if (file.isDirectory) {
+            file.listFiles()?.forEach { child ->
+                deleteRecursively(child)
+            }
+        }
+        file.delete()
+    }
+
+    /**
+     * Checks if panic wipe is enabled by user.
+     */
+    fun isPanicWipeEnabled(): Boolean {
+        return securePreferences.isPanicWipeEnabled
+    }
+
+    /**
+     * Enables/disables panic wipe feature.
+     */
+    fun setPanicWipeEnabled(enabled: Boolean) {
+        securePreferences.isPanicWipeEnabled = enabled
+    }
+}

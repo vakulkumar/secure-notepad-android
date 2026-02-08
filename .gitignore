@@ -1,0 +1,29 @@
+# Secure Notepad - Git Ignore
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE
+.idea/
+*.iml
+local.properties
+*.log
+
+# Signing - NEVER COMMIT THESE!
+*.jks
+*.keystore
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.class
+
+# Keep releases folder tracked
+!releases/

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 
+    SECURITY: NO INTERNET PERMISSION
+    This app is 100% offline. Network access is explicitly disabled.
+    -->
+    
+    <!-- Biometric authentication permission -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    
+    <!-- Explicitly remove INTERNET permission if any library adds it -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
+    <application
+        android:name=".SecureNotesApp"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SecureNotepad"
+        tools:targetApi="31">
+        
+        <!-- 
+        SECURITY: allowBackup="false" and fullBackupContent="false"
+        Prevents backup of app data which could expose encrypted notes
+        -->
+        
+        <activity
+            android:name=".presentation.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SecureNotepad">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
