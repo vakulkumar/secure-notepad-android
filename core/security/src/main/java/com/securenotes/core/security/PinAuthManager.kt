@@ -165,8 +165,14 @@ class PinAuthManager @Inject constructor(
                 return false
             }
         } else {
-            val legacyHash = hashPinLegacy(pin)
-            return storedHash.equals(legacyHash, ignoreCase = true)
+            try {
+                val legacyHash = hashPinLegacy(pin)
+                val storedBytes = hexToBytes(storedHash)
+                val legacyBytes = hexToBytes(legacyHash)
+                return MessageDigest.isEqual(storedBytes, legacyBytes)
+            } catch (e: Exception) {
+                return false
+            }
         }
     }
 
