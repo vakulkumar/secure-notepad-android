@@ -27,13 +27,17 @@ class PanicManager @Inject constructor(
     private val securePreferences: SecurePreferences
 ) {
     
+    companion object {
+        private const val DATABASE_NAME = "secure_notes.db"
+    }
+    
     /**
      * Represents the severity of panic action.
      */
     enum class PanicLevel {
         /** Just lock the app, data remains */
         LOCK_ONLY,
-        /** Delete all encryption keys, making data unreadable */
+        /** Delete all encryption keys and database, making data unrecoverable */
         CRYPTOGRAPHIC_WIPE,
         /** Delete all data files completely */
         FULL_WIPE
@@ -53,8 +57,12 @@ class PanicManager @Inject constructor(
                 }
                 PanicLevel.CRYPTOGRAPHIC_WIPE -> {
                     lockApp()
+                    // Delete encryption keys
                     cryptoManager.deleteAllKeys()
-                    // Note: Data still exists but is cryptographically unrecoverable
+                    // Also delete the database so app can start fresh
+                    // Without this, the app would crash trying to open the 
+                    // encrypted database with a new (different) key
+                    deleteDatabase()
                 }
                 PanicLevel.FULL_WIPE -> {
                     lockApp()
@@ -74,6 +82,25 @@ class PanicManager @Inject constructor(
     private fun lockApp() {
         securePreferences.isAppLocked = true
         securePreferences.lastLockTime = 0L // Force re-authentication
+    }
+
+    /**
+     * Deletes the encrypted database file.
+     * This is necessary after cryptographic wipe to allow the app to restart cleanly.
+     */
+    private fun deleteDatabase() {
+        // Delete the main database file
+        context.deleteDatabase(DATABASE_NAME)
+        
+        // Also delete any SQLCipher journal files
+        val databasesDir = File(context.applicationInfo.dataDir, "databases")
+        if (databasesDir.exists()) {
+            databasesDir.listFiles()?.forEach { file ->
+                if (file.name.startsWith(DATABASE_NAME)) {
+                    file.delete()
+                }
+            }
+        }
     }
 
     /**
