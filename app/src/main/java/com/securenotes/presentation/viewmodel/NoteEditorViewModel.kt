@@ -151,38 +151,9 @@ class NoteEditorViewModel @Inject constructor(
             
             try {
                 if (state.isNewNote) {
-                    val newId = createNoteUseCase(
-                        Note(
-                            title = state.title,
-                            content = state.content,
-                            isFavorite = state.isFavorite,
-                            isLocked = state.isLocked
-                        )
-                    )
-                    _uiState.update { 
-                        it.copy(
-                            noteId = newId,
-                            isNewNote = false,
-                            isSaving = false,
-                            hasUnsavedChanges = false
-                        )
-                    }
+                    createNote(state)
                 } else {
-                    updateNoteUseCase(
-                        Note(
-                            id = state.noteId,
-                            title = state.title,
-                            content = state.content,
-                            isFavorite = state.isFavorite,
-                            isLocked = state.isLocked
-                        )
-                    )
-                    _uiState.update { 
-                        it.copy(
-                            isSaving = false,
-                            hasUnsavedChanges = false
-                        )
-                    }
+                    updateNote(state)
                 }
             } catch (e: Exception) {
                 _uiState.update { 
@@ -195,6 +166,43 @@ class NoteEditorViewModel @Inject constructor(
         }
         
         return saveJob
+    }
+
+    private suspend fun createNote(state: NoteEditorUiState) {
+        val newId = createNoteUseCase(
+            Note(
+                title = state.title,
+                content = state.content,
+                isFavorite = state.isFavorite,
+                isLocked = state.isLocked
+            )
+        )
+        _uiState.update {
+            it.copy(
+                noteId = newId,
+                isNewNote = false,
+                isSaving = false,
+                hasUnsavedChanges = false
+            )
+        }
+    }
+
+    private suspend fun updateNote(state: NoteEditorUiState) {
+        updateNoteUseCase(
+            Note(
+                id = state.noteId,
+                title = state.title,
+                content = state.content,
+                isFavorite = state.isFavorite,
+                isLocked = state.isLocked
+            )
+        )
+        _uiState.update {
+            it.copy(
+                isSaving = false,
+                hasUnsavedChanges = false
+            )
+        }
     }
     
     /**
