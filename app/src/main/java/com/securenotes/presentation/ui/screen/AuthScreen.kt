@@ -1,5 +1,6 @@
 package com.securenotes.presentation.ui.screen
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,10 +59,25 @@ fun AuthScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val activity = context as FragmentActivity
     val snackbarHostState = remember { SnackbarHostState() }
     
     var showPanicConfirm by remember { mutableStateOf(false) }
+    
+    // Get FragmentActivity safely
+    val fragmentActivity = remember(context) {
+        when (context) {
+            is FragmentActivity -> context
+            is android.content.ContextWrapper -> {
+                var ctx = context
+                while (ctx is android.content.ContextWrapper) {
+                    if (ctx is FragmentActivity) return@remember ctx
+                    ctx = ctx.baseContext
+                }
+                null
+            }
+            else -> null
+        }
+    }
 
     // Navigate on successful authentication
     LaunchedEffect(uiState.isAuthenticated) {
@@ -78,10 +94,10 @@ fun AuthScreen(
         }
     }
 
-    // Auto-trigger biometric on first load
-    LaunchedEffect(Unit) {
-        if (uiState.canUseBiometric) {
-            viewModel.authenticate(activity)
+    // Auto-trigger biometric on first load if available
+    LaunchedEffect(fragmentActivity, uiState.canUseBiometric) {
+        if (fragmentActivity != null && uiState.canUseBiometric) {
+            viewModel.authenticate(fragmentActivity)
         }
     }
 
@@ -137,8 +153,10 @@ fun AuthScreen(
 
                 // Authenticate button
                 Button(
-                    onClick = { viewModel.authenticate(activity) },
-                    enabled = !uiState.isAuthenticating,
+                    onClick = { 
+                        fragmentActivity?.let { viewModel.authenticate(it) }
+                    },
+                    enabled = !uiState.isAuthenticating && fragmentActivity != null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (uiState.isAuthenticating) {
@@ -159,7 +177,7 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Panic button (hidden until long-pressed or enabled in settings)
+                // Panic button
                 OutlinedButton(
                     onClick = { showPanicConfirm = true },
                     colors = ButtonDefaults.outlinedButtonColors(

@@ -1,10 +1,12 @@
 package com.securenotes.di
 
+import android.content.Context
 import com.securenotes.security.CryptoManager
 import com.securenotes.security.DatabaseKeyManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -17,8 +19,10 @@ object SecurityModule {
     
     @Provides
     @Singleton
-    fun provideCryptoManager(): CryptoManager {
-        return CryptoManager()
+    fun provideCryptoManager(
+        @ApplicationContext context: Context
+    ): CryptoManager {
+        return CryptoManager(context)
     }
     
     @Provides
