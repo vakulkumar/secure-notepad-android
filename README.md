@@ -23,8 +23,9 @@ A production-ready, **100% offline** Android notepad application with enterprise
 secure-notepad/
 ├── app/                    # Main application module
 │   ├── presentation/       # UI layer (Compose, ViewModels)
-│   ├── domain/             # Business logic
+│   ├── domain/             # Business logic + Result types
 │   ├── data/               # Repository, Room database
+│   ├── di/                 # Hilt modules (ApplicationScope)
 │   └── security/           # App-specific security (Panic, Backup)
 ├── core/
 │   └── security/           # Security module (reusable)
@@ -44,6 +45,17 @@ secure-notepad/
 - **Room** with SQLCipher for encrypted persistence
 - **Material 3** design system
 - **Detekt** for static code analysis
+
+## 🛡️ Senior Engineering Patterns
+
+### Safe Save Operations
+Critical writes use `ApplicationScope` to survive ViewModel destruction, preventing data loss when users navigate away during encryption/save operations.
+
+### Proper Error Propagation
+`DecryptionResult<T>` sealed class with specific error types (`KEY_INVALIDATED`, `AUTHENTICATION_REQUIRED`, `DATA_CORRUPTED`) enables proper UI recovery flows instead of silent failures.
+
+### Search Scalability Trade-off
+Due to field-level encryption, search requires in-memory decryption. Documented with mitigation strategies (sequence-based processing, future blind indexing).
 
 ## 📱 Requirements
 
@@ -69,7 +81,7 @@ secure-notepad/
 ## 📦 Pre-built APK
 
 Signed release APKs are available in the `releases/` directory:
-- `SecureNotes-v2.1.0.apk` - Latest with PIN/duress mode
+- `SecureNotes-v2.2.0.apk` - Latest with architecture fixes
 
 ## 🔑 Encryption Flow
 

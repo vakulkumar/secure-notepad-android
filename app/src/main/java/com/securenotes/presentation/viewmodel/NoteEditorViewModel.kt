@@ -3,12 +3,15 @@ package com.securenotes.presentation.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.securenotes.di.ApplicationScope
 import com.securenotes.domain.model.Note
 import com.securenotes.domain.usecase.CreateNoteUseCase
 import com.securenotes.domain.usecase.GetNotesUseCase
 import com.securenotes.domain.usecase.ToggleNoteLockUseCase
 import com.securenotes.domain.usecase.UpdateNoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +21,9 @@ import javax.inject.Inject
 
 /**
  * ViewModel for the note editor screen.
+ * 
+ * CRITICAL: Uses ApplicationScope for save operations to prevent data loss
+ * when the user navigates away before the save completes.
  */
 @HiltViewModel
 class NoteEditorViewModel @Inject constructor(
@@ -25,13 +31,17 @@ class NoteEditorViewModel @Inject constructor(
     private val getNotesUseCase: GetNotesUseCase,
     private val createNoteUseCase: CreateNoteUseCase,
     private val updateNoteUseCase: UpdateNoteUseCase,
-    private val toggleNoteLockUseCase: ToggleNoteLockUseCase
+    private val toggleNoteLockUseCase: ToggleNoteLockUseCase,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
 
     private val noteId: Long = savedStateHandle.get<Long>("noteId") ?: -1L
     
     private val _uiState = MutableStateFlow(NoteEditorUiState())
     val uiState: StateFlow<NoteEditorUiState> = _uiState.asStateFlow()
+    
+    // Track save job to allow awaiting completion
+    private var saveJob: Job? = null
 
     init {
         if (noteId > 0) {
@@ -94,9 +104,6 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggles the lock status of the note.
-     */
     fun toggleLock() {
         val currentState = _uiState.value
         val newLockState = !currentState.isLocked
@@ -108,7 +115,6 @@ class NoteEditorViewModel @Inject constructor(
             )
         }
         
-        // If editing existing note, also update in database directly
         if (!currentState.isNewNote && currentState.noteId > 0) {
             viewModelScope.launch {
                 toggleNoteLockUseCase(currentState.noteId, newLockState)
@@ -116,21 +122,31 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggles between edit and preview mode.
-     */
     fun togglePreviewMode() {
         _uiState.update { it.copy(isPreviewMode = !it.isPreviewMode) }
     }
 
-    fun saveNote(): Boolean {
+    /**
+     * Saves the note using ApplicationScope to survive ViewModel destruction.
+     * 
+     * SENIOR PATTERN: Critical writes (encryption + DB) must use a scope that
+     * survives the UI lifecycle. Using ApplicationScope ensures the save
+     * completes even if the user navigates away immediately.
+     * 
+     * @return Job that can be awaited to ensure save completion before navigation
+     */
+    fun saveNote(): Job? {
         val state = _uiState.value
         
         if (state.title.isBlank() && state.content.isBlank()) {
-            return false
+            return null
         }
         
-        viewModelScope.launch {
+        // Cancel any pending save to avoid duplicates
+        saveJob?.cancel()
+        
+        // Use ApplicationScope - this survives ViewModel destruction
+        saveJob = applicationScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             
             try {
@@ -178,7 +194,15 @@ class NoteEditorViewModel @Inject constructor(
             }
         }
         
-        return true
+        return saveJob
+    }
+    
+    /**
+     * Saves the note and blocks until complete.
+     * Use this when you MUST wait for save before navigating.
+     */
+    suspend fun saveNoteAndWait(): Boolean {
+        return saveNote()?.also { it.join() } != null
     }
 
     fun clearError() {
