@@ -9,20 +9,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import com.securenotes.core.security.BiometricAuthManager
 import com.securenotes.presentation.navigation.SecureNotesNavigation
 import com.securenotes.presentation.ui.theme.SecureNotepadTheme
-import com.securenotes.security.BiometricAuthManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 /**
  * Main Activity for Secure Notes.
- * 
- * Extends FragmentActivity (required by BiometricPrompt).
- * 
- * Security Features:
- * - FLAG_SECURE: Prevents screenshots, screen recording, and 
- *   showing content in recent apps switcher
  */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -53,15 +47,5 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
-    }
-    
-    override fun onPause() {
-        super.onPause()
-        // Additional security: You could lock the app here after a timeout
-    }
-    
-    override fun onStop() {
-        super.onStop()
-        // The app will require re-authentication when resumed
     }
 }

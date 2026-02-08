@@ -2,6 +2,7 @@ package com.securenotes.security
 
 import android.content.Context
 import android.net.Uri
+import com.securenotes.core.security.TimeProvider
 import com.securenotes.domain.model.Note
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
@@ -29,7 +30,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class BackupManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val timeProvider: TimeProvider
 ) {
     companion object {
         private const val PBKDF2_ITERATIONS = 100_000
@@ -48,41 +50,30 @@ class BackupManager @Inject constructor(
 
     /**
      * Creates an encrypted backup of notes.
-     * 
-     * @param notes List of notes to backup
-     * @param password User-provided password for encryption
-     * @param outputUri URI to write the backup file
-     * @return Result indicating success or failure
      */
     fun createBackup(notes: List<Note>, password: String, outputUri: Uri): Result<Unit> {
         return try {
-            // Serialize notes to JSON
             val backupData = BackupData(
                 version = 1,
-                timestamp = System.currentTimeMillis(),
+                timestamp = timeProvider.now(),
                 notes = notes.map { it.toBackupNote() }
             )
             val jsonData = json.encodeToString(backupData)
             
-            // Generate salt and IV
             val salt = ByteArray(SALT_SIZE).apply { SecureRandom().nextBytes(this) }
             val iv = ByteArray(IV_SIZE).apply { SecureRandom().nextBytes(this) }
             
-            // Derive key from password
             val key = deriveKey(password, salt)
             
-            // Encrypt the data
             val cipher = Cipher.getInstance(ALGORITHM)
             cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
             val encryptedData = cipher.doFinal(jsonData.toByteArray(Charsets.UTF_8))
             
-            // Combine: salt + iv + encrypted data
             val output = ByteArrayOutputStream()
             output.write(salt)
             output.write(iv)
             output.write(encryptedData)
             
-            // Write to file
             context.contentResolver.openOutputStream(outputUri)?.use { stream ->
                 stream.write(output.toByteArray())
             } ?: return Result.failure(Exception("Failed to open output stream"))
@@ -95,14 +86,9 @@ class BackupManager @Inject constructor(
 
     /**
      * Restores notes from an encrypted backup.
-     * 
-     * @param inputUri URI of the backup file
-     * @param password User-provided password for decryption
-     * @return List of restored notes or failure
      */
     fun restoreBackup(inputUri: Uri, password: String): Result<List<Note>> {
         return try {
-            // Read the backup file
             val data = context.contentResolver.openInputStream(inputUri)?.use { stream ->
                 stream.readBytes()
             } ?: return Result.failure(Exception("Failed to read backup file"))
@@ -111,24 +97,19 @@ class BackupManager @Inject constructor(
                 return Result.failure(Exception("Invalid backup file format"))
             }
             
-            // Extract salt, iv, and encrypted data
             val salt = data.copyOfRange(0, SALT_SIZE)
             val iv = data.copyOfRange(SALT_SIZE, SALT_SIZE + IV_SIZE)
             val encryptedData = data.copyOfRange(SALT_SIZE + IV_SIZE, data.size)
             
-            // Derive key from password
             val key = deriveKey(password, salt)
             
-            // Decrypt the data
             val cipher = Cipher.getInstance(ALGORITHM)
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
             val decryptedData = cipher.doFinal(encryptedData)
             
-            // Deserialize JSON
             val jsonString = String(decryptedData, Charsets.UTF_8)
             val backupData = json.decodeFromString<BackupData>(jsonString)
             
-            // Convert to domain notes
             val notes = backupData.notes.map { it.toNote() }
             
             Result.success(notes)
@@ -145,8 +126,6 @@ class BackupManager @Inject constructor(
         val secretKey = factory.generateSecret(spec)
         return SecretKeySpec(secretKey.encoded, "AES")
     }
-
-    // ========== Backup Data Classes ==========
 
     @Serializable
     data class BackupData(
@@ -183,7 +162,7 @@ class BackupManager @Inject constructor(
     )
 
     private fun BackupNote.toNote() = Note(
-        id = 0, // Reset ID for fresh insert
+        id = 0,
         title = title,
         content = content,
         createdAt = createdAt,

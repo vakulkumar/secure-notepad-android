@@ -76,7 +76,15 @@ android {
     }
 }
 
+// Export Room schemas for migration testing
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
+    // Core Security Module
+    implementation(project(":core:security"))
+    
     // Core Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -109,13 +117,16 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     
-    // Security
-    implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.biometric)
-    
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     
     // Serialization (for backup)
     implementation(libs.kotlinx.serialization.json)
+    
+    // Testing
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 }
+

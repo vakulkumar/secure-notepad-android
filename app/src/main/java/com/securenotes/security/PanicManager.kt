@@ -1,6 +1,8 @@
 package com.securenotes.security
 
 import android.content.Context
+import com.securenotes.core.security.CryptoManager
+import com.securenotes.core.security.SecurePreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,12 +15,10 @@ import javax.inject.Singleton
  * - Instant app lock
  * - Complete data wipe (nuclear option)
  * 
- * This is a scaffold for the "Panic Button" feature.
- * In a production app, this could be triggered by:
+ * Can be triggered by:
  * - A secret gesture
  * - A duress PIN
  * - A hardware button combination
- * - Remote wipe command (requires network, not applicable here)
  */
 @Singleton
 class PanicManager @Inject constructor(
@@ -45,9 +45,6 @@ class PanicManager @Inject constructor(
 
     /**
      * Executes panic action based on the specified level.
-     * 
-     * @param level The severity of the panic action
-     * @return Result indicating success or failure
      */
     suspend fun executePanic(level: PanicLevel): Result<Unit> = withContext(Dispatchers.IO) {
         try {
@@ -57,11 +54,7 @@ class PanicManager @Inject constructor(
                 }
                 PanicLevel.CRYPTOGRAPHIC_WIPE -> {
                     lockApp()
-                    // Delete encryption keys
                     cryptoManager.deleteAllKeys()
-                    // Also delete the database so app can start fresh
-                    // Without this, the app would crash trying to open the 
-                    // encrypted database with a new (different) key
                     deleteDatabase()
                 }
                 PanicLevel.FULL_WIPE -> {
@@ -76,23 +69,14 @@ class PanicManager @Inject constructor(
         }
     }
 
-    /**
-     * Locks the app immediately.
-     */
     private fun lockApp() {
         securePreferences.isAppLocked = true
-        securePreferences.lastLockTime = 0L // Force re-authentication
+        securePreferences.lastLockTime = 0L
     }
 
-    /**
-     * Deletes the encrypted database file.
-     * This is necessary after cryptographic wipe to allow the app to restart cleanly.
-     */
     private fun deleteDatabase() {
-        // Delete the main database file
         context.deleteDatabase(DATABASE_NAME)
         
-        // Also delete any SQLCipher journal files
         val databasesDir = File(context.applicationInfo.dataDir, "databases")
         if (databasesDir.exists()) {
             databasesDir.listFiles()?.forEach { file ->
@@ -103,30 +87,20 @@ class PanicManager @Inject constructor(
         }
     }
 
-    /**
-     * Deletes all application data.
-     */
     private fun deleteAllData() {
-        // Delete databases
         val databasesDir = File(context.applicationInfo.dataDir, "databases")
         deleteRecursively(databasesDir)
         
-        // Delete shared preferences
         val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
         deleteRecursively(prefsDir)
         
-        // Delete files
         val filesDir = context.filesDir
         deleteRecursively(filesDir)
         
-        // Delete cache
         val cacheDir = context.cacheDir
         deleteRecursively(cacheDir)
     }
 
-    /**
-     * Recursively deletes a directory and all its contents.
-     */
     private fun deleteRecursively(file: File) {
         if (file.isDirectory) {
             file.listFiles()?.forEach { child ->
@@ -136,16 +110,10 @@ class PanicManager @Inject constructor(
         file.delete()
     }
 
-    /**
-     * Checks if panic wipe is enabled by user.
-     */
     fun isPanicWipeEnabled(): Boolean {
         return securePreferences.isPanicWipeEnabled
     }
 
-    /**
-     * Enables/disables panic wipe feature.
-     */
     fun setPanicWipeEnabled(enabled: Boolean) {
         securePreferences.isPanicWipeEnabled = enabled
     }

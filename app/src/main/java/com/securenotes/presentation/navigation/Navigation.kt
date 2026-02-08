@@ -11,12 +11,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.securenotes.core.security.BiometricAuthManager
 import com.securenotes.presentation.ui.screen.AuthScreen
 import com.securenotes.presentation.ui.screen.BackupScreen
 import com.securenotes.presentation.ui.screen.NoteEditorScreen
 import com.securenotes.presentation.ui.screen.NoteListScreen
 import com.securenotes.presentation.ui.screen.TrashScreen
-import com.securenotes.security.BiometricAuthManager
 
 /**
  * Navigation routes for the app.
@@ -44,9 +44,6 @@ fun SecureNotesNavigation(
     
     val startDestination = if (startAuthenticated) Routes.NOTE_LIST else Routes.AUTH
 
-    // Pending navigation after biometric auth
-    val pendingNavigationState = remember { mutableStateOf<Pair<Long, () -> Unit>?>(null) }
-
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -68,17 +65,15 @@ fun SecureNotesNavigation(
                 onNoteClick = { noteId ->
                     navController.navigate(Routes.noteEditor(noteId))
                 },
-                onLockedNoteClick = { noteId, onSuccess ->
-                    // Trigger biometric auth for locked notes
+                onLockedNoteClick = { _, onSuccess ->
                     val fragmentActivity = context.findFragmentActivity()
                     if (fragmentActivity != null) {
                         biometricAuthManager.authenticate(
                             activity = fragmentActivity,
                             onSuccess = onSuccess,
-                            onError = { /* Silently fail, user can try again */ }
+                            onError = { /* Silently fail */ }
                         )
                     } else {
-                        // Fallback: just open the note if biometric not available
                         onSuccess()
                     }
                 },
@@ -133,9 +128,6 @@ fun SecureNotesNavigation(
     }
 }
 
-/**
- * Extension to find FragmentActivity from Context.
- */
 private fun Context.findFragmentActivity(): FragmentActivity? {
     var context = this
     while (context is android.content.ContextWrapper) {

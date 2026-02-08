@@ -1,0 +1,79 @@
+# Detekt Configuration for Secure Notepad
+# Focuses on security-sensitive logging detection
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+  weights:
+    complexity: 2
+    style: 1
+    comments: 1
+
+config:
+  validation: true
+  warningsAsErrors: true
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+output-reports:
+  active: true
+
+comments:
+  active: true
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+
+complexity:
+  active: true
+  LongMethod:
+    threshold: 60
+  LongParameterList:
+    threshold: 8
+  TooManyFunctions:
+    active: false
+
+# Custom rules for security-sensitive logging
+potential-bugs:
+  active: true
+  
+style:
+  active: true
+  ForbiddenComment:
+    active: true
+    comments:
+      - "TODO:"
+      - "FIXME:"
+      - "STOPSHIP:"
+  
+  # Custom rule: Prevent logging sensitive variables
+  # This matches Log.d/Log.v/Log.i calls that might contain sensitive data
+  ForbiddenMethodCall:
+    active: true
+    methods:
+      # Forbid verbose logging in release
+      - "android.util.Log.v"
+      - "android.util.Log.d"
+
+# Security-focused naming patterns to watch for
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+  VariableNaming:
+    active: true
+
+# Empty blocks are often bugs
+empty-blocks:
+  active: true
+
+# Exception handling best practices
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: false  # Sometimes needed for security wrappers

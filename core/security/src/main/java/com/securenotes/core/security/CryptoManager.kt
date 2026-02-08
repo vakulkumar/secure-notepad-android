@@ -1,11 +1,10 @@
-package com.securenotes.security
+package com.securenotes.core.security
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
-import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -21,11 +20,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
  * - AES-256-GCM encryption (authenticated encryption)
  * - Hardware-backed key storage when available
  * - Keys never leave the Keystore
- * 
- * Encryption Key Flow:
- * 1. Master key generated/retrieved from Android Keystore
- * 2. Master key used to encrypt/decrypt note content
- * 3. Database passphrase stored in EncryptedSharedPreferences (encrypted once, reused)
  */
 @Singleton
 class CryptoManager @Inject constructor(
@@ -129,9 +123,6 @@ class CryptoManager @Inject constructor(
     /**
      * Generates the database encryption passphrase.
      * This passphrase is generated ONCE and stored encrypted in SharedPreferences.
-     * This ensures the same passphrase is used across app launches.
-     * 
-     * @return ByteArray passphrase for SQLCipher (32 bytes = 256 bits)
      */
     fun getDatabasePassphrase(): ByteArray {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -139,25 +130,20 @@ class CryptoManager @Inject constructor(
         val existingEncrypted = prefs.getString(PREF_DB_PASSPHRASE, null)
         
         if (existingEncrypted != null) {
-            // Decrypt and return existing passphrase
             return try {
                 Base64.decode(decryptString(existingEncrypted), Base64.NO_WRAP)
             } catch (e: Exception) {
-                // If decryption fails, generate new passphrase
                 generateAndStorePassphrase(prefs)
             }
         } else {
-            // Generate new passphrase
             return generateAndStorePassphrase(prefs)
         }
     }
     
     private fun generateAndStorePassphrase(prefs: android.content.SharedPreferences): ByteArray {
-        // Generate random 32-byte passphrase
         val passphrase = ByteArray(32)
         java.security.SecureRandom().nextBytes(passphrase)
         
-        // Encrypt and store
         val passphraseBase64 = Base64.encodeToString(passphrase, Base64.NO_WRAP)
         val encrypted = encryptString(passphraseBase64)
         prefs.edit().putString(PREF_DB_PASSPHRASE, encrypted).apply()
@@ -179,7 +165,6 @@ class CryptoManager @Inject constructor(
         if (keyStore.containsAlias(MASTER_KEY_ALIAS)) {
             keyStore.deleteEntry(MASTER_KEY_ALIAS)
         }
-        // Also clear stored passphrase
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()

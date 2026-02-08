@@ -1,4 +1,4 @@
-package com.securenotes.security
+package com.securenotes.core.security
 
 import android.content.Context
 import androidx.biometric.BiometricManager
@@ -59,11 +59,6 @@ class BiometricAuthManager @Inject constructor(
     /**
      * Shows the biometric prompt for authentication.
      * Falls back to device credentials if biometrics are not available.
-     * 
-     * @param activity The FragmentActivity to show the prompt
-     * @param title Title for the prompt
-     * @param subtitle Subtitle for the prompt
-     * @param description Description for the prompt
      */
     fun authenticate(
         activity: FragmentActivity,
@@ -105,7 +100,6 @@ class BiometricAuthManager @Inject constructor(
             .setTitle(title)
             .setSubtitle(subtitle)
             .setDescription(description)
-            // Allow biometrics or device credential (PIN/Password/Pattern)
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -118,10 +112,6 @@ class BiometricAuthManager @Inject constructor(
     /**
      * Shows the biometric prompt with callback-based result handling.
      * Use this for one-off authentication needs (e.g., unlocking individual notes).
-     * 
-     * @param activity The FragmentActivity to show the prompt
-     * @param onSuccess Called when authentication succeeds
-     * @param onError Called when authentication fails or is canceled
      */
     fun authenticate(
         activity: FragmentActivity,

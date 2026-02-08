@@ -303,65 +303,47 @@ private fun NoteCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .wrapContentHeight() // Dynamic height for staggered grid
+            .wrapContentHeight()
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { showDeleteConfirm = true }
             ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (note.isLocked) 
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            else 
+                MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // For locked notes: show only lock icon and "Locked Note" text
+            if (note.isLocked) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Lock icon if note is locked
-                    if (note.isLocked) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Locked",
-                            modifier = Modifier
-                                .size(16.dp)
-                                .padding(end = 4.dp),
+                            modifier = Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                    }
-                    Text(
-                        text = note.title.ifEmpty { "Untitled" },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Row {
-                    IconButton(
-                        onClick = onToggleFavorite,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (note.isFavorite) 
-                                Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (note.isFavorite) 
-                                MaterialTheme.colorScheme.error 
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = "Locked Note",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
+                    
                     if (showDeleteConfirm) {
                         IconButton(
                             onClick = {
@@ -379,27 +361,93 @@ private fun NoteCard(
                         }
                     }
                 }
-            }
-
-            // Show content preview (variable length for staggered effect)
-            if (note.content.isNotEmpty()) {
+                
                 Spacer(modifier = Modifier.height(8.dp))
+                
                 Text(
-                    text = note.contentPreview(200),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 8, // Allow more lines for staggered effect
-                    overflow = TextOverflow.Ellipsis
+                    text = "Tap to unlock",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = formatDate(note.updatedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            } else {
+                // Normal note: show title, content, and all controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = note.title.ifEmpty { "Untitled" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Row {
+                        IconButton(
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (note.isFavorite) 
+                                    Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Favorite",
+                                tint = if (note.isFavorite) 
+                                    MaterialTheme.colorScheme.error 
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        if (showDeleteConfirm) {
+                            IconButton(
+                                onClick = {
+                                    onDelete()
+                                    showDeleteConfirm = false
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Show content preview
+                if (note.content.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = note.contentPreview(200),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 8,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = formatDate(note.updatedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = formatDate(note.updatedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
         }
     }
 }

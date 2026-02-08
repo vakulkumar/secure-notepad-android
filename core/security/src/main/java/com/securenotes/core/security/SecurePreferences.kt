@@ -1,4 +1,4 @@
-package com.securenotes.security
+package com.securenotes.core.security
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -18,7 +18,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class SecurePreferences @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val timeProvider: TimeProvider
 ) {
     
     companion object {
@@ -31,6 +32,9 @@ class SecurePreferences @Inject constructor(
         const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         const val KEY_PANIC_WIPE_ENABLED = "panic_wipe_enabled"
         const val KEY_FIRST_LAUNCH = "first_launch"
+        const val KEY_PIN_ENABLED = "pin_enabled"
+        const val KEY_USER_PIN_HASH = "user_pin_hash"
+        const val KEY_DURESS_PIN_HASH = "duress_pin_hash"
         
         // Default values
         const val DEFAULT_AUTO_LOCK_TIMEOUT = 5 * 60 * 1000L // 5 minutes
@@ -77,11 +81,24 @@ class SecurePreferences @Inject constructor(
         get() = encryptedPrefs.getBoolean(KEY_FIRST_LAUNCH, true)
         set(value) = encryptedPrefs.edit().putBoolean(KEY_FIRST_LAUNCH, value).apply()
 
+    // PIN Authentication
+    var isPinEnabled: Boolean
+        get() = encryptedPrefs.getBoolean(KEY_PIN_ENABLED, false)
+        set(value) = encryptedPrefs.edit().putBoolean(KEY_PIN_ENABLED, value).apply()
+
+    var userPinHash: String?
+        get() = encryptedPrefs.getString(KEY_USER_PIN_HASH, null)
+        set(value) = encryptedPrefs.edit().putString(KEY_USER_PIN_HASH, value).apply()
+
+    var duressPinHash: String?
+        get() = encryptedPrefs.getString(KEY_DURESS_PIN_HASH, null)
+        set(value) = encryptedPrefs.edit().putString(KEY_DURESS_PIN_HASH, value).apply()
+
     /**
      * Checks if the app should auto-lock based on timeout.
      */
     fun shouldAutoLock(): Boolean {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = timeProvider.now()
         val lastLock = lastLockTime
         val timeout = autoLockTimeout
         return (currentTime - lastLock) > timeout
@@ -91,7 +108,7 @@ class SecurePreferences @Inject constructor(
      * Records the current time as the last activity time.
      */
     fun recordActivity() {
-        lastLockTime = System.currentTimeMillis()
+        lastLockTime = timeProvider.now()
     }
 
     /**

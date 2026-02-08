@@ -1,9 +1,9 @@
 package com.securenotes.di
 
+import com.securenotes.core.security.CryptoManager
 import com.securenotes.data.local.dao.NoteDao
 import com.securenotes.data.repository.NoteRepositoryImpl
 import com.securenotes.domain.repository.NoteRepository
-import com.securenotes.security.CryptoManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

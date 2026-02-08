@@ -4,7 +4,7 @@ import com.securenotes.data.local.dao.NoteDao
 import com.securenotes.data.local.entity.NoteEntity
 import com.securenotes.domain.model.Note
 import com.securenotes.domain.repository.NoteRepository
-import com.securenotes.security.CryptoManager
+import com.securenotes.core.security.CryptoManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject

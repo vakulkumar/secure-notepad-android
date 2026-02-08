@@ -4,9 +4,10 @@ import android.content.Context
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.securenotes.security.BiometricAuthManager
+import com.securenotes.core.security.BiometricAuthManager
+import com.securenotes.core.security.PinAuthManager
+import com.securenotes.core.security.SecurePreferences
 import com.securenotes.security.PanicManager
-import com.securenotes.security.SecurePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +25,8 @@ class AuthViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val biometricAuthManager: BiometricAuthManager,
     private val securePreferences: SecurePreferences,
-    private val panicManager: PanicManager
+    private val panicManager: PanicManager,
+    private val pinAuthManager: PinAuthManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -32,12 +34,10 @@ class AuthViewModel @Inject constructor(
 
     init {
         checkBiometricCapability()
+        checkPinEnabled()
         observeAuthResults()
     }
 
-    /**
-     * Checks device biometric capability.
-     */
     private fun checkBiometricCapability() {
         val capability = biometricAuthManager.canAuthenticate()
         _uiState.update { 
@@ -48,22 +48,18 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Observes authentication results from BiometricAuthManager.
-     */
+    private fun checkPinEnabled() {
+        _uiState.update { 
+            it.copy(isPinEnabled = pinAuthManager.isPinEnabled())
+        }
+    }
+
     private fun observeAuthResults() {
         viewModelScope.launch {
             biometricAuthManager.authResult.collect { result ->
                 when (result) {
                     is BiometricAuthManager.AuthResult.Success -> {
-                        _uiState.update { 
-                            it.copy(
-                                isAuthenticated = true,
-                                authError = null
-                            )
-                        }
-                        securePreferences.isAppLocked = false
-                        securePreferences.recordActivity()
+                        onAuthSuccess()
                     }
                     is BiometricAuthManager.AuthResult.Failed -> {
                         _uiState.update { 
@@ -80,9 +76,18 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Initiates biometric authentication.
-     */
+    private fun onAuthSuccess(isDuress: Boolean = false) {
+        _uiState.update { 
+            it.copy(
+                isAuthenticated = true,
+                isDuressMode = isDuress,
+                authError = null
+            )
+        }
+        securePreferences.isAppLocked = false
+        securePreferences.recordActivity()
+    }
+
     fun authenticate(activity: FragmentActivity) {
         _uiState.update { it.copy(isAuthenticating = true, authError = null) }
         
@@ -97,8 +102,30 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Executes panic action.
+     * Verifies PIN entry.
+     * Returns true for standard unlock, triggers duress mode if duress PIN detected.
      */
+    fun verifyPin(pin: String) {
+        when (val result = pinAuthManager.verifyPin(pin)) {
+            is PinAuthManager.PinResult.Success -> {
+                onAuthSuccess(isDuress = false)
+            }
+            is PinAuthManager.PinResult.DuressTriggered -> {
+                onAuthSuccess(isDuress = true)
+                // Optionally trigger panic
+                viewModelScope.launch {
+                    panicManager.executePanic(PanicManager.PanicLevel.LOCK_ONLY)
+                }
+            }
+            is PinAuthManager.PinResult.InvalidPin -> {
+                _uiState.update { it.copy(authError = "Invalid PIN") }
+            }
+            is PinAuthManager.PinResult.PinNotSet -> {
+                _uiState.update { it.copy(authError = "PIN not configured") }
+            }
+        }
+    }
+
     fun executePanic(level: PanicManager.PanicLevel) {
         viewModelScope.launch {
             _uiState.update { it.copy(isPanicExecuting = true) }
@@ -123,20 +150,16 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Clears the error message.
-     */
     fun clearError() {
         _uiState.update { it.copy(authError = null) }
     }
 
-    /**
-     * Data class representing the UI state.
-     */
     data class AuthUiState(
         val isAuthenticated: Boolean = false,
+        val isDuressMode: Boolean = false,
         val isAuthenticating: Boolean = false,
         val canUseBiometric: Boolean = false,
+        val isPinEnabled: Boolean = false,
         val biometricCapability: BiometricAuthManager.BiometricCapability = 
             BiometricAuthManager.BiometricCapability.UNKNOWN,
         val authError: String? = null,

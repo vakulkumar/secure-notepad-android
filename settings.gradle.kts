@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "SecureNotepad"
 include(":app")
+include(":core:security")
+include(":benchmark")
